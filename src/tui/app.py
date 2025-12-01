@@ -217,6 +217,7 @@ class AgentCoderApp(App):
             /memory     - Manage project memory
             /doctor     - Check system health
             /statusline - Configure status line
+            /speckit    - Run SpecKit commands
             """
             log.write(help_text)
         
@@ -278,6 +279,58 @@ class AgentCoderApp(App):
             log.write("To configure a custom status line, you can update your settings or use environment variables.")
             log.write("Currently, the status line shows the agent's thinking status.")
             log.write("Future versions will support custom shell commands for status line.")
+            
+        elif cmd == "/speckit":
+            if not args:
+                log.write("[bold]SpecKit Commands:[/bold]")
+                log.write("Usage: /speckit <command>")
+                log.write("Commands: init, plan, specify, tasks, implement, analyze, clarify, constitution, checklist")
+                return
+
+            subcmd = args[0].lower()
+            
+            if subcmd == "init":
+                from src.agent.speckit import install_speckit
+                try:
+                    import os
+                    install_speckit(os.getcwd())
+                    log.write("[bold green]SpecKit initialized successfully.[/bold green]")
+                    log.write("Skills have been installed to .agent-coder/skills/")
+                    log.write("You may need to restart the session to load the new skills.")
+                except Exception as e:
+                    log.write(f"[bold red]Error initializing SpecKit: {e}[/bold red]")
+            else:
+                # Check if skill exists
+                skill_name = f"speckit-{subcmd}"
+                # We need access to the agent's tools to check for get_skill
+                # But we can just try to invoke the agent with the skill prompt if we can find it.
+                # Or better, we can read the skill file directly if we know where it is.
+                
+                import os
+                skill_path = os.path.join(os.getcwd(), ".agent-coder", "skills", f"{skill_name}.md")
+                if os.path.exists(skill_path):
+                    # Read skill content
+                    with open(skill_path, "r") as f:
+                        content = f.read()
+                        # Strip frontmatter
+                        if content.startswith("---"):
+                            parts = content.split("---", 2)
+                            if len(parts) >= 3:
+                                content = parts[2].strip()
+                    
+                    # Send to agent
+                    log.write(f"[bold blue]Executing SpecKit command: {subcmd}[/bold blue]")
+                    self.query_one("#chat_log", RichLog).write(f"[bold blue]You:[/bold blue] /speckit {subcmd}")
+                    self.query_one("#status_bar", Label).update("Thinking...")
+                    
+                    # We append the user's extra args if any
+                    user_args = " ".join(args[1:])
+                    prompt = f"{content}\n\nUser Input:\n{user_args}"
+                    
+                    self.get_response(prompt)
+                else:
+                    log.write(f"[bold red]SpecKit command '{subcmd}' not found or not initialized.[/bold red]")
+                    log.write("Run '/speckit init' to initialize SpecKit.")
             
         else:
             log.write(f"[bold red]Unknown command: {cmd}[/bold red]")
