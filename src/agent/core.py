@@ -5,34 +5,28 @@ from pydantic_ai.models.openai import OpenAIModel
 from src.agent.tools import read_file, write_file, list_dir
 
 from typing import Callable, Awaitable, Optional
-from enum import Enum
-
-class AgentMode(str, Enum):
-    AUTO = 'auto'
-    PLAN = 'plan'
-    ASK = 'ask'
+from src.models import AgentMode, AgentConfig
 
 def create_agent(
-    model_name: str = 'gpt-oss:20b',
-    mode: AgentMode = AgentMode.AUTO,
+    config: AgentConfig,
     confirmation_callback: Optional[Callable[[str], Awaitable[bool]]] = None
 ) -> Agent:
-    """Create an agent with the specified model and mode."""
+    """Create an agent with the specified configuration."""
     # Set default Ollama base URL if not present
     if "OLLAMA_BASE_URL" not in os.environ:
-        os.environ["OLLAMA_BASE_URL"] = "http://localhost:11434/v1"
+        os.environ["OLLAMA_BASE_URL"] = config.ollama_base_url
 
     # Ollama is compatible with OpenAI API
     model = OpenAIModel(
-        model_name=model_name,
+        model_name=config.model_name,
         provider='ollama',
     )
     
     current_tools = [read_file, list_dir]
     
-    if mode == AgentMode.AUTO:
+    if config.mode == AgentMode.AUTO:
         current_tools.append(write_file)
-    elif mode == AgentMode.ASK:
+    elif config.mode == AgentMode.ASK:
         if confirmation_callback is None:
             # Fallback to auto if no callback provided, or raise error. 
             # For safety, let's just not add write_file or warn.
@@ -67,7 +61,7 @@ def create_agent(
         except Exception:
             pass
     
-    if mode == AgentMode.PLAN:
+    if config.mode == AgentMode.PLAN:
         system_prompt += " You are in PLAN mode. You can read files but CANNOT write them. Propose a plan."
 
     return Agent(

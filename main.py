@@ -1,7 +1,7 @@
 import typer
 from src.tui.app import AgentCoderApp
 
-from src.agent.core import AgentMode
+from src.models import AgentMode
 
 app = typer.Typer()
 
