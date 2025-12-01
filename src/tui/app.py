@@ -88,15 +88,17 @@ class AgentCoderApp(App):
     def on_mount(self) -> None:
         """Initialize the agent on mount."""
         from src.agent.core import create_agent
-        from src.models import AgentMode, AgentConfig
+        from src.models import AgentMode
+        from src.config import Settings
         
-        config = AgentConfig(
-            model_name=self.model_name,
+        # Initialize settings with CLI overrides
+        settings = Settings(
+            model=self.model_name,
             mode=AgentMode(self.mode)
         )
         
         self.agent = create_agent(
-            config=config,
+            settings=settings,
             confirmation_callback=self.confirm_action
         )
 

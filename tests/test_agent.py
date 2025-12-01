@@ -5,9 +5,9 @@ async def test_agent():
     print("Testing agent connection...")
     try:
         # Default to gpt-oss:20b
-        from src.models import AgentConfig
-        config = AgentConfig(model_name="gpt-oss:20b")
-        agent = create_agent(config=config)
+        from src.config import Settings
+        settings = Settings(model="gpt-oss:20b")
+        agent = create_agent(settings=settings)
         # We can't easily mock the Ollama server here without external libs, 
         # so we will just check if the agent object is created correctly 
         # and try a simple prompt if Ollama is running.
