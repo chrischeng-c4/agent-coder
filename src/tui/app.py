@@ -102,9 +102,63 @@ class AgentCoderApp(App):
             log.write(f"[bold blue]You:[/bold blue] {message}")
             self.query_one("#chat_input", Input).value = ""
             
+            # Check for slash commands
+            if message.startswith("/"):
+                await self.handle_slash_command(message)
+                self.query_one("#status_bar", Label).update("")
+                return
+
             # Call agent asynchronously
             self.query_one("#status_bar", Label).update("Thinking...")
             self.get_response(message)
+
+    async def handle_slash_command(self, command: str) -> None:
+        """Handle slash commands."""
+        log = self.query_one("#chat_log", RichLog)
+        parts = command.strip().split()
+        cmd = parts[0].lower()
+        args = parts[1:]
+
+        if cmd == "/help":
+            help_text = """
+            [bold]Available Commands:[/bold]
+            /help       - Show this help message
+            /clear      - Clear the chat log
+            /exit       - Exit the application
+            /model      - Show current model
+            /mode       - Show current mode
+            /doctor     - Check system health
+            """
+            log.write(help_text)
+        
+        elif cmd == "/clear":
+            log.clear()
+            log.write("[bold yellow]Chat cleared.[/bold yellow]")
+            
+        elif cmd in ("/exit", "/quit"):
+            self.exit()
+            
+        elif cmd == "/model":
+            log.write(f"Current model: [bold]{self.model_name}[/bold]")
+            
+        elif cmd == "/mode":
+            log.write(f"Current mode: [bold]{self.mode}[/bold]")
+            
+        elif cmd == "/doctor":
+            log.write("Checking system health...")
+            try:
+                import aiohttp
+                async with aiohttp.ClientSession() as session:
+                    async with session.get("http://localhost:11434/") as resp:
+                        if resp.status == 200:
+                            log.write("[bold green]Ollama is running and accessible.[/bold green]")
+                        else:
+                            log.write(f"[bold red]Ollama returned status {resp.status}[/bold red]")
+            except Exception as e:
+                log.write(f"[bold red]Error connecting to Ollama: {e}[/bold red]")
+                
+        else:
+            log.write(f"[bold red]Unknown command: {cmd}[/bold red]")
 
     @work(exclusive=True)
     async def get_response(self, message: str) -> None:

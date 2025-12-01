@@ -19,6 +19,7 @@ name = "agent-coder"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "ollama" },
     { name = "pydantic-ai" },
     { name = "textual" },
@@ -27,6 +28,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.13.2" },
     { name = "ollama", specifier = ">=0.6.1" },
     { name = "pydantic-ai", specifier = ">=1.25.1" },
     { name = "textual", specifier = ">=6.7.0" },
