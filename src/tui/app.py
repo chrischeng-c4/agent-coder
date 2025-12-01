@@ -137,6 +137,7 @@ class AgentCoderApp(App):
             /mode       - Show current mode
             /memory     - Manage project memory
             /doctor     - Check system health
+            /statusline - Configure status line
             """
             log.write(help_text)
         
@@ -193,6 +194,12 @@ class AgentCoderApp(App):
                 except Exception as e:
                     log.write(f"[bold red]Error writing memory: {e}[/bold red]")
                 
+        elif cmd == "/statusline":
+            log.write("[bold]Status Line Configuration:[/bold]")
+            log.write("To configure a custom status line, you can update your settings or use environment variables.")
+            log.write("Currently, the status line shows the agent's thinking status.")
+            log.write("Future versions will support custom shell commands for status line.")
+            
         else:
             log.write(f"[bold red]Unknown command: {cmd}[/bold red]")
 
