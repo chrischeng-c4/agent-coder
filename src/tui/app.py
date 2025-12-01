@@ -1,8 +1,32 @@
 from textual.app import App, ComposeResult
 from textual import work
-from textual.widgets import Header, Footer, Input, RichLog, Label, Button
+from textual.widgets import Header, Footer, Input, RichLog, Label, Button, TextArea
 from textual.containers import Vertical, Grid
 from textual.screen import ModalScreen
+from textual import events
+from textual.message import Message
+
+class ChatInput(TextArea):
+    """Custom TextArea for chat input."""
+    
+    class Submitted(Message):
+        """Posted when the enter key is pressed."""
+        def __init__(self, value: str):
+            self.value = value
+            super().__init__()
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.show_line_numbers = False
+
+    async def _on_key(self, event: events.Key) -> None:
+        if event.key == "enter" and not event.shift and not event.ctrl and not event.alt:
+            event.stop()
+            value = self.text.strip()
+            if value:
+                self.post_message(self.Submitted(value))
+                self.clear()
+        return await super()._on_key(event)
 
 class ConfirmationScreen(ModalScreen[bool]):
     """Screen for confirming actions."""
@@ -36,8 +60,10 @@ class AgentCoderApp(App):
         height: 1fr;
         border: solid green;
     }
-    Input {
+    ChatInput {
         dock: bottom;
+        height: 3;
+        border: solid gray;
     }
     
     ConfirmationScreen {
@@ -64,21 +90,27 @@ class AgentCoderApp(App):
     }
     """
 
-    BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
+    BINDINGS = [
+        ("d", "toggle_dark", "Toggle dark mode"),
+        ("ctrl+c", "quit_app", "Quit"),
+        ("ctrl+d", "quit_app", "Quit"),
+        ("ctrl+l", "clear_log", "Clear Log"),
+    ]
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Vertical(
             RichLog(id="chat_log", highlight=True, markup=True),
             Label("", id="status_bar"),
-            Input(placeholder="Type your message here...", id="chat_input"),
+            ChatInput(id="chat_input"),
         )
         yield Footer()
 
-    def __init__(self, model_name: str = "gpt-oss:20b", mode: str = "auto"):
+    def __init__(self, model_name: str = "gpt-oss:20b", mode: str = "auto", initial_query: str = None):
         super().__init__()
         self.model_name = model_name
         self.mode = mode
+        self.initial_query = initial_query
         self.agent = None
 
     async def confirm_action(self, message: str) -> bool:
@@ -101,14 +133,28 @@ class AgentCoderApp(App):
             settings=settings,
             confirmation_callback=self.confirm_action
         )
+        
+        if self.initial_query:
+            self.query_one("#chat_log", RichLog).write(f"[bold blue]You:[/bold blue] {self.initial_query}")
+            self.query_one("#status_bar", Label).update("Thinking...")
+            self.get_response(self.initial_query)
 
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
+    def action_quit_app(self) -> None:
+        """Quit the application."""
+        self.exit()
+
+    def action_clear_log(self) -> None:
+        """Clear the chat log."""
+        self.query_one("#chat_log", RichLog).clear()
+        self.query_one("#chat_log", RichLog).write("[bold yellow]Chat cleared.[/bold yellow]")
+
+    async def on_chat_input_submitted(self, event: ChatInput.Submitted) -> None:
         """Handle input submission."""
         message = event.value
         if message:
             log = self.query_one("#chat_log", RichLog)
             log.write(f"[bold blue]You:[/bold blue] {message}")
-            self.query_one("#chat_input", Input).value = ""
+            # self.query_one("#chat_input", ChatInput).clear() # Already cleared in ChatInput
             
             # Check for slash commands
             if message.startswith("/"):
