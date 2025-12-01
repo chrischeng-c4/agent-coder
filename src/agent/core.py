@@ -57,6 +57,16 @@ def create_agent(
         'Do not just describe what you would do, actually call the tool.'
     )
     
+    # Load project memory from CLAUDE.md
+    memory_path = os.path.join(os.getcwd(), "CLAUDE.md")
+    if os.path.exists(memory_path):
+        try:
+            with open(memory_path, "r") as f:
+                memory_content = f.read()
+            system_prompt += f"\n\nPROJECT MEMORY (CLAUDE.md):\n{memory_content}"
+        except Exception:
+            pass
+    
     if mode == AgentMode.PLAN:
         system_prompt += " You are in PLAN mode. You can read files but CANNOT write them. Propose a plan."
 

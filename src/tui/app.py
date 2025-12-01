@@ -127,6 +127,7 @@ class AgentCoderApp(App):
             /exit       - Exit the application
             /model      - Show current model
             /mode       - Show current mode
+            /memory     - Manage project memory
             /doctor     - Check system health
             """
             log.write(help_text)
@@ -156,6 +157,33 @@ class AgentCoderApp(App):
                             log.write(f"[bold red]Ollama returned status {resp.status}[/bold red]")
             except Exception as e:
                 log.write(f"[bold red]Error connecting to Ollama: {e}[/bold red]")
+
+        elif cmd == "/memory":
+            import os
+            memory_path = "CLAUDE.md"
+            if not args:
+                # Show memory
+                if os.path.exists(memory_path):
+                    try:
+                        with open(memory_path, "r") as f:
+                            content = f.read()
+                        log.write(f"[bold]Project Memory ({memory_path}):[/bold]\n{content}")
+                    except Exception as e:
+                        log.write(f"[bold red]Error reading memory: {e}[/bold red]")
+                else:
+                    log.write("[yellow]No project memory found (CLAUDE.md). Use '/memory <text>' to add one.[/yellow]")
+            else:
+                # Add to memory
+                new_memory = " ".join(args)
+                try:
+                    with open(memory_path, "a") as f:
+                        f.write(f"\n- {new_memory}")
+                    log.write(f"[green]Added to memory:[/green] {new_memory}")
+                    # Re-initialize agent to pick up new memory? 
+                    # Ideally yes, but for now let's just inform user.
+                    log.write("[dim]Note: Restart session or run /init (not impl) to apply changes to agent context immediately.[/dim]")
+                except Exception as e:
+                    log.write(f"[bold red]Error writing memory: {e}[/bold red]")
                 
         else:
             log.write(f"[bold red]Unknown command: {cmd}[/bold red]")
