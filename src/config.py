@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     )
 
     # Core Agent Settings
-    model: str = Field(default="gpt-oss:20b", description="Name of the Ollama model to use")
+    model: str = Field(default="gpt-oss:20b", description="Name of the model to use")
+    model_provider: str = Field(default="ollama", description="Model provider: ollama, anthropic, google, openai")
     mode: AgentMode = Field(default=AgentMode.AUTO, description="Default operation mode")
     ollama_base_url: str = Field(default="http://localhost:11434/v1", description="Base URL for Ollama API")
     

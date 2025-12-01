@@ -1,10 +1,11 @@
 from textual.app import App, ComposeResult
 from textual import work
-from textual.widgets import Header, Footer, Input, RichLog, Label, Button, TextArea
+from textual.widgets import Header, Footer, Input, RichLog, Label, Button, TextArea, Select
 from textual.containers import Vertical, Grid
 from textual.screen import ModalScreen
 from textual import events
 from textual.message import Message
+from src.tui.settings_screen import SettingsScreen
 
 class ChatInput(TextArea):
     """Custom TextArea for chat input."""
@@ -88,10 +89,28 @@ class AgentCoderApp(App):
     Button {
         width: 100%;
     }
+    SettingsScreen {
+        align: center middle;
+    }
+    #settings_dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 1fr 1fr 1fr;
+        padding: 1 2;
+        width: 60;
+        height: 25;
+        border: thick $background 80%;
+        background: $surface;
+    }
+    .label {
+        content-align: left middle;
+        height: 100%;
+    }
     """
 
     BINDINGS = [
         ("d", "toggle_dark", "Toggle dark mode"),
+        ("s", "open_settings", "Settings"),
         ("ctrl+c", "quit_app", "Quit"),
         ("ctrl+d", "quit_app", "Quit"),
         ("ctrl+l", "clear_log", "Clear Log"),
@@ -106,9 +125,10 @@ class AgentCoderApp(App):
         )
         yield Footer()
 
-    def __init__(self, model_name: str = "gpt-oss:20b", mode: str = "auto", initial_query: str = None):
+    def __init__(self, model_name: str = "gpt-oss:20b", model_provider: str = "ollama", mode: str = "auto", initial_query: str = None):
         super().__init__()
         self.model_name = model_name
+        self.model_provider = model_provider
         self.mode = mode
         self.initial_query = initial_query
         self.agent = None
@@ -126,6 +146,7 @@ class AgentCoderApp(App):
         # Initialize settings with CLI overrides
         settings = Settings(
             model=self.model_name,
+            model_provider=self.model_provider,
             mode=AgentMode(self.mode)
         )
         
@@ -153,12 +174,16 @@ class AgentCoderApp(App):
         
         status.update("Initializing agent...")
         from src.agent.core import create_agent
+        from src.agent.hooks import HookEvent
         
         self.agent = create_agent(
             settings=settings,
             confirmation_callback=self.confirm_action,
             extra_tools=self.mcp_manager.tools
         )
+        
+        if hasattr(self.agent, 'hook_manager'):
+            await self.agent.hook_manager.trigger(HookEvent.SESSION_START, {"session_id": "tui_session"})
         
         status.update("Ready.")
         
@@ -169,6 +194,10 @@ class AgentCoderApp(App):
 
     async def on_unmount(self) -> None:
         """Cleanup resources."""
+        from src.agent.hooks import HookEvent
+        if self.agent and hasattr(self.agent, 'hook_manager'):
+            await self.agent.hook_manager.trigger(HookEvent.SESSION_END, {"session_id": "tui_session"})
+
         if hasattr(self, 'mcp_manager'):
             await self.mcp_manager.cleanup()
 
@@ -180,6 +209,36 @@ class AgentCoderApp(App):
         """Clear the chat log."""
         self.query_one("#chat_log", RichLog).clear()
         self.query_one("#chat_log", RichLog).write("[bold yellow]Chat cleared.[/bold yellow]")
+
+    def action_open_settings(self) -> None:
+        """Open settings dialog."""
+        def on_dismiss(result):
+            if result:
+                provider, model, mode = result
+                self.update_settings(provider, model, mode)
+        
+        self.push_screen(
+            SettingsScreen(self.model_provider, self.model_name, self.mode),
+            on_dismiss
+        )
+
+    def update_settings(self, provider, model, mode):
+        self.model_provider = provider
+        self.model_name = model
+        self.mode = mode
+        
+        log = self.query_one("#chat_log", RichLog)
+        log.write(f"[bold]Settings updated:[/bold] Provider={provider}, Model={model}, Mode={mode}")
+        
+        # Re-initialize agent
+        from src.config import Settings
+        from src.models import AgentMode
+        settings = Settings(
+            model=self.model_name,
+            model_provider=self.model_provider,
+            mode=AgentMode(self.mode)
+        )
+        self.run_worker(self.initialize_agent(settings))
 
     async def on_chat_input_submitted(self, event: ChatInput.Submitted) -> None:
         """Handle input submission."""
@@ -212,14 +271,19 @@ class AgentCoderApp(App):
             /help       - Show this help message
             /clear      - Clear the chat log
             /exit       - Exit the application
-            /model      - Show current model
-            /mode       - Show current mode
+            /settings   - Open settings dialog (or press 's')
+            /model      - Show or set current model
+            /provider   - Show or set current provider
+            /mode       - Show or set current mode
             /memory     - Manage project memory
             /doctor     - Check system health
             /statusline - Configure status line
             /speckit    - Run SpecKit commands
             """
             log.write(help_text)
+        
+        elif cmd == "/settings":
+            self.action_open_settings()
         
         elif cmd == "/clear":
             log.clear()
@@ -229,23 +293,104 @@ class AgentCoderApp(App):
             self.exit()
             
         elif cmd == "/model":
-            log.write(f"Current model: [bold]{self.model_name}[/bold]")
-            
+            if args:
+                new_model = args[0]
+                self.model_name = new_model
+                log.write(f"Switching model to: [bold]{self.model_name}[/bold]")
+                
+                # Update settings
+                from src.config import Settings
+                from src.models import AgentMode
+                settings = Settings(
+                    model=self.model_name,
+                    model_provider=self.model_provider,
+                    mode=AgentMode(self.mode)
+                )
+                self.run_worker(self.initialize_agent(settings))
+            else:
+                log.write(f"Current model: [bold]{self.model_name}[/bold]")
+                log.write("Usage: /model <model_name>")
+
+        elif cmd == "/provider":
+            if args:
+                new_provider = args[0].lower()
+                if new_provider not in ["ollama", "anthropic", "claude", "google", "gemini", "openai", "gpt"]:
+                    log.write(f"[bold red]Invalid provider: {new_provider}[/bold red]")
+                    log.write("Valid providers: ollama, anthropic, google, openai")
+                    return
+                    
+                self.model_provider = new_provider
+                log.write(f"Switching provider to: [bold]{self.model_provider}[/bold]")
+                
+                # Update settings
+                from src.config import Settings
+                from src.models import AgentMode
+                settings = Settings(
+                    model=self.model_name,
+                    model_provider=self.model_provider,
+                    mode=AgentMode(self.mode)
+                )
+                self.run_worker(self.initialize_agent(settings))
+            else:
+                log.write(f"Current provider: [bold]{self.model_provider}[/bold]")
+                log.write("Usage: /provider <provider_name>")
+                
         elif cmd == "/mode":
-            log.write(f"Current mode: [bold]{self.mode}[/bold]")
+            if args:
+                new_mode = args[0].lower()
+                try:
+                    from src.models import AgentMode
+                    mode_enum = AgentMode(new_mode)
+                    self.mode = mode_enum.value
+                    log.write(f"Switching mode to: [bold]{self.mode}[/bold]")
+                    
+                    # Update settings
+                    from src.config import Settings
+                    settings = Settings(
+                        model=self.model_name,
+                        model_provider=self.model_provider,
+                        mode=mode_enum
+                    )
+                    self.run_worker(self.initialize_agent(settings))
+                except ValueError:
+                    log.write(f"[bold red]Invalid mode: {new_mode}[/bold red]")
+                    log.write("Valid modes: auto, plan, ask")
+            else:
+                log.write(f"Current mode: [bold]{self.mode}[/bold]")
+                log.write("Usage: /mode <mode>")
             
         elif cmd == "/doctor":
             log.write("Checking system health...")
-            try:
-                import aiohttp
-                async with aiohttp.ClientSession() as session:
-                    async with session.get("http://localhost:11434/") as resp:
-                        if resp.status == 200:
-                            log.write("[bold green]Ollama is running and accessible.[/bold green]")
-                        else:
-                            log.write(f"[bold red]Ollama returned status {resp.status}[/bold red]")
-            except Exception as e:
-                log.write(f"[bold red]Error connecting to Ollama: {e}[/bold red]")
+            log.write(f"Current Provider: [bold]{self.model_provider}[/bold]")
+            
+            if self.model_provider == "ollama":
+                try:
+                    import aiohttp
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get("http://localhost:11434/") as resp:
+                            if resp.status == 200:
+                                log.write("[bold green]Ollama is running and accessible.[/bold green]")
+                            else:
+                                log.write(f"[bold red]Ollama returned status {resp.status}[/bold red]")
+                except Exception as e:
+                    log.write(f"[bold red]Error connecting to Ollama: {e}[/bold red]")
+            elif self.model_provider in ("anthropic", "claude"):
+                if "ANTHROPIC_API_KEY" in os.environ:
+                    log.write("[bold green]ANTHROPIC_API_KEY found in environment.[/bold green]")
+                else:
+                    log.write("[bold red]ANTHROPIC_API_KEY not found in environment.[/bold red]")
+            elif self.model_provider in ("google", "gemini"):
+                if "GEMINI_API_KEY" in os.environ:
+                    log.write("[bold green]GEMINI_API_KEY found in environment.[/bold green]")
+                else:
+                    log.write("[bold red]GEMINI_API_KEY not found in environment.[/bold red]")
+            elif self.model_provider in ("openai", "gpt"):
+                if "OPENAI_API_KEY" in os.environ:
+                    log.write("[bold green]OPENAI_API_KEY found in environment.[/bold green]")
+                else:
+                    log.write("[bold red]OPENAI_API_KEY not found in environment.[/bold red]")
+            else:
+                log.write(f"[yellow]No specific health check for provider: {self.model_provider}[/yellow]")
 
         elif cmd == "/memory":
             import os
