@@ -65,6 +65,42 @@ def create_agent(
     if settings.mode == AgentMode.PLAN:
         system_prompt += " You are in PLAN mode. You can read files but CANNOT write them. Propose a plan."
 
+    # Load subagents
+    from src.agent.subagents import load_subagents
+    subagents = load_subagents(settings)
+    
+    # Create tools for subagents
+    for name, config in subagents.items():
+        # Create a tool function for this subagent
+        async def subagent_tool(query: str) -> str:
+            """Delegate a task to a specialized subagent."""
+            # Create a new agent instance for the subagent
+            # Inherit settings but override model if specified
+            sub_settings = settings.model_copy()
+            if config.model and config.model != 'inherit':
+                sub_settings.model = config.model
+                
+            # Determine tools for subagent
+            # For simplicity, we give subagents the same tools as the main agent for now
+            # In a real implementation, we would filter based on config.tools
+            
+            sub_agent = Agent(
+                OpenAIModel(model_name=sub_settings.model, provider='ollama'),
+                system_prompt=config.prompt,
+                tools=current_tools
+            )
+            
+            try:
+                result = await sub_agent.run(query)
+                return f"Subagent {name} response:\n{result.output}"
+            except Exception as e:
+                return f"Error running subagent {name}: {str(e)}"
+        
+        # Rename the function to match the subagent name (sanitized)
+        subagent_tool.__name__ = f"delegate_to_{name.replace('-', '_')}"
+        subagent_tool.__doc__ = f"Delegate to {name}: {config.description}"
+        current_tools.append(subagent_tool)
+
     return Agent(
         model,
         system_prompt=system_prompt,
