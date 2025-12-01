@@ -166,7 +166,7 @@ class AgentCoderApp(App):
 
         elif cmd == "/memory":
             import os
-            memory_path = "CLAUDE.md"
+            memory_path = "AGENT_MEMORY.md"
             if not args:
                 # Show memory
                 if os.path.exists(memory_path):
@@ -177,7 +177,7 @@ class AgentCoderApp(App):
                     except Exception as e:
                         log.write(f"[bold red]Error reading memory: {e}[/bold red]")
                 else:
-                    log.write("[yellow]No project memory found (CLAUDE.md). Use '/memory <text>' to add one.[/yellow]")
+                    log.write("[yellow]No project memory found (AGENT_MEMORY.md). Use '/memory <text>' to add one.[/yellow]")
             else:
                 # Add to memory
                 new_memory = " ".join(args)

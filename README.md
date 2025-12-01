@@ -11,7 +11,7 @@ Agent Coder is a powerful Terminal User Interface (TUI) coding assistant powered
   - **Plan** (`--mode plan`): The agent can only read files and propose plans, but cannot modify files.
   - **Ask** (`--mode ask`): The agent must ask for user confirmation before writing to any file.
 - **Project Memory**:
-  - Automatically reads `CLAUDE.md` in the current directory to understand project context and conventions.
+  - Automatically reads `AGENT_MEMORY.md` in the current directory to understand project context and conventions.
   - Use `/memory` slash command to manage persistent memory.
 - **Slash Commands**: Built-in commands for quick actions like clearing chat, checking health, etc.
 
@@ -67,13 +67,13 @@ Inside the TUI, you can use the following commands:
 - `/model`: Show the current model being used.
 - `/mode`: Show the current agent mode.
 - `/doctor`: Check the connection to the Ollama server.
-- `/memory`: View the current project memory (`CLAUDE.md`).
+- `/memory`: View the current project memory (`AGENT_MEMORY.md`).
 - `/memory <text>`: Add a new item to the project memory.
 - `/exit` or `/quit`: Exit the application.
 
-### Project Memory (`CLAUDE.md`)
+### Project Memory (`AGENT_MEMORY.md`)
 
-Create a `CLAUDE.md` file in your project root to provide persistent context to the agent. This is useful for:
+Create a `AGENT_MEMORY.md` file in your project root to provide persistent context to the agent. This is useful for:
 - Coding style guidelines.
 - Architecture overviews.
 - Frequently used commands.

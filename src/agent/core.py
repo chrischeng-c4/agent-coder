@@ -51,13 +51,13 @@ def create_agent(
         'Do not just describe what you would do, actually call the tool.'
     )
     
-    # Load project memory from CLAUDE.md
-    memory_path = os.path.join(os.getcwd(), "CLAUDE.md")
+    # Load project memory from AGENT_MEMORY.md
+    memory_path = os.path.join(os.getcwd(), "AGENT_MEMORY.md")
     if os.path.exists(memory_path):
         try:
             with open(memory_path, "r") as f:
                 memory_content = f.read()
-            system_prompt += f"\n\nPROJECT MEMORY (CLAUDE.md):\n{memory_content}"
+            system_prompt += f"\n\nPROJECT MEMORY (AGENT_MEMORY.md):\n{memory_content}"
         except Exception:
             pass
     
