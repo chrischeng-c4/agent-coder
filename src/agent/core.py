@@ -101,6 +101,22 @@ def create_agent(
         subagent_tool.__doc__ = f"Delegate to {name}: {config.description}"
         current_tools.append(subagent_tool)
 
+    # Load skills
+    from src.agent.skills import load_skills
+    skills = load_skills(settings)
+    
+    if skills:
+        skills_list = "\n".join([f"- {s.name}: {s.description}" for s in skills.values()])
+        system_prompt += f"\n\nAVAILABLE SKILLS:\n{skills_list}\n\nTo use a skill, call the get_skill tool with the skill name to retrieve its instructions."
+        
+        def get_skill(name: str) -> str:
+            """Retrieve the instructions for a specific skill."""
+            if name in skills:
+                return f"Skill {name} Instructions:\n{skills[name].content}"
+            return f"Skill {name} not found."
+            
+        current_tools.append(get_skill)
+
     return Agent(
         model,
         system_prompt=system_prompt,
