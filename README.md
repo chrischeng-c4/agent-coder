@@ -71,7 +71,14 @@ Inside the TUI, you can use the following commands:
 - `/memory <text>`: Add a new item to the project memory.
 - `/exit` or `/quit`: Exit the application.
 
-### Project Memory (`AGENT_MEMORY.md`)
+### Subagents and Skills
+
+Agent Coder supports subagents and skills, compatible with Claude Code configuration.
+
+- **Subagents**: Place YAML definitions in `.agent-coder/agents/` (or `.claude/agents/`).
+- **Skills**: Place Markdown definitions in `.agent-coder/skills/` (or `.claude/skills/`).
+
+See [Claude Code documentation](https://code.claude.com/docs) for file format details.
 
 Create a `AGENT_MEMORY.md` file in your project root to provide persistent context to the agent. This is useful for:
 - Coding style guidelines.
