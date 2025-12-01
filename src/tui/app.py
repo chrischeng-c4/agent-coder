@@ -129,15 +129,48 @@ class AgentCoderApp(App):
             mode=AgentMode(self.mode)
         )
         
+        # Initialize MCP Manager
+        from src.agent.mcp_manager import MCPManager
+        self.mcp_manager = MCPManager(settings)
+        self.mcp_manager.load_config()
+        
+        # We need to connect to MCP servers asynchronously.
+        # Since on_mount is synchronous (or at least we want to block until ready),
+        # we'll do this in a worker or just await it if on_mount can be async.
+        # Textual's on_mount can be async.
+        
+        # However, create_agent is synchronous in our current design.
+        # We'll connect first, then create agent.
+        
+        self.run_worker(self.initialize_agent(settings))
+
+    async def initialize_agent(self, settings):
+        """Initialize agent with MCP tools."""
+        status = self.query_one("#status_bar", Label)
+        status.update("Connecting to MCP servers...")
+        
+        await self.mcp_manager.connect_all()
+        
+        status.update("Initializing agent...")
+        from src.agent.core import create_agent
+        
         self.agent = create_agent(
             settings=settings,
-            confirmation_callback=self.confirm_action
+            confirmation_callback=self.confirm_action,
+            extra_tools=self.mcp_manager.tools
         )
+        
+        status.update("Ready.")
         
         if self.initial_query:
             self.query_one("#chat_log", RichLog).write(f"[bold blue]You:[/bold blue] {self.initial_query}")
-            self.query_one("#status_bar", Label).update("Thinking...")
+            status.update("Thinking...")
             self.get_response(self.initial_query)
+
+    async def on_unmount(self) -> None:
+        """Cleanup resources."""
+        if hasattr(self, 'mcp_manager'):
+            await self.mcp_manager.cleanup()
 
     def action_quit_app(self) -> None:
         """Quit the application."""

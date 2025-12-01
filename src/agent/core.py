@@ -4,13 +4,14 @@ from pydantic_ai.models.openai import OpenAIModel
 
 from src.agent.tools import read_file, write_file, list_dir
 
-from typing import Callable, Awaitable, Optional
+from typing import Callable, Awaitable, Optional, List, Any
 from src.models import AgentMode
 from src.config import Settings
 
 def create_agent(
     settings: Settings,
-    confirmation_callback: Optional[Callable[[str], Awaitable[bool]]] = None
+    confirmation_callback: Optional[Callable[[str], Awaitable[bool]]] = None,
+    extra_tools: List[Any] = []
 ) -> Agent:
     """Create an agent with the specified configuration."""
     # Set default Ollama base URL if not present
@@ -24,6 +25,7 @@ def create_agent(
     )
     
     current_tools = [read_file, list_dir]
+    current_tools.extend(extra_tools)
     
     if settings.mode == AgentMode.AUTO:
         current_tools.append(write_file)
