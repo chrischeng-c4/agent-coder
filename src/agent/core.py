@@ -67,7 +67,9 @@ def create_agent(
                 
             await hook_manager.trigger(HookEvent.POST_TOOL_USE, {
                 "tool_name": tool_name,
-                "result": result
+                "result": result,
+                "args": args,
+                "kwargs": kwargs
             })
             return result
             
@@ -186,6 +188,23 @@ def create_agent(
             return f"Skill {name} not found."
             
         current_tools.append(wrap_tool(get_skill))
+
+    # Initialize LSP Manager
+    from src.agent.lsp_manager import LSPManager
+    lsp_manager = LSPManager(settings)
+    lsp_manager.start()
+    
+    # Register LSP tools
+    current_tools.extend([wrap_tool(t) for t in lsp_manager.tools])
+    
+    # Register LSP hooks
+    hook_manager.register(HookEvent.POST_TOOL_USE, lsp_manager.on_post_tool_use)
+    
+    # Register cleanup hook
+    async def cleanup_lsp(data):
+        lsp_manager.stop()
+        
+    hook_manager.register(HookEvent.SESSION_END, cleanup_lsp)
 
     agent = Agent(
         model,

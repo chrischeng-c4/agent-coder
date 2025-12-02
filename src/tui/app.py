@@ -126,12 +126,14 @@ class AgentCoderApp(App):
         )
         yield Footer()
 
-    def __init__(self, model_name: str = "gpt-oss:20b", model_provider: str = "ollama", mode: str = "auto", initial_query: str = None):
+    def __init__(self, model_name: str = "gpt-oss:20b", model_provider: str = "ollama", mode: str = "auto", initial_query: str = None, lsp_enabled: bool = False, lsp_command: str = "pylsp"):
         super().__init__()
         self.model_name = model_name
         self.model_provider = model_provider
         self.mode = mode
         self.initial_query = initial_query
+        self.lsp_enabled = lsp_enabled
+        self.lsp_command = lsp_command
         self.agent = None
         self.message_history = []
 
@@ -149,7 +151,9 @@ class AgentCoderApp(App):
         settings = Settings(
             model=self.model_name,
             model_provider=self.model_provider,
-            mode=AgentMode(self.mode)
+            mode=AgentMode(self.mode),
+            lsp_enabled=self.lsp_enabled,
+            lsp_command=self.lsp_command
         )
         
         # Initialize MCP Manager
@@ -486,6 +490,38 @@ class AgentCoderApp(App):
                     log.write(f"[bold red]SpecKit command '{subcmd}' not found or not initialized.[/bold red]")
                     log.write("Run '/speckit init' to initialize SpecKit.")
             
+
+        elif cmd == "/lsp":
+            if not args:
+                status = "Enabled" if self.lsp_enabled else "Disabled"
+                log.write(f"[bold]LSP Status:[/bold] {status}")
+                log.write(f"[bold]Command:[/bold] {self.lsp_command}")
+                log.write("Usage: /lsp [on|off|<command>]")
+            else:
+                arg = args[0]
+                if arg.lower() == "on":
+                    self.lsp_enabled = True
+                    log.write("[bold green]LSP Enabled.[/bold green]")
+                elif arg.lower() == "off":
+                    self.lsp_enabled = False
+                    log.write("[bold yellow]LSP Disabled.[/bold yellow]")
+                else:
+                    self.lsp_command = " ".join(args)
+                    self.lsp_enabled = True
+                    log.write(f"[bold green]LSP Command set to: {self.lsp_command}[/bold green]")
+                
+                # Re-initialize agent
+                from src.config import Settings
+                from src.models import AgentMode
+                settings = Settings(
+                    model=self.model_name,
+                    model_provider=self.model_provider,
+                    mode=AgentMode(self.mode),
+                    lsp_enabled=self.lsp_enabled,
+                    lsp_command=self.lsp_command
+                )
+                self.run_worker(self.initialize_agent(settings))
+
         else:
             log.write(f"[bold red]Unknown command: {cmd}[/bold red]")
 

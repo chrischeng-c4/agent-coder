@@ -15,6 +15,9 @@ Agent Coder is a powerful Terminal User Interface (TUI) coding assistant powered
   - **Auto** (`--mode auto`): The agent can freely read and write files to complete tasks. (Default)
   - **Plan** (`--mode plan`): The agent can only read files and propose plans, but cannot modify files.
   - **Ask** (`--mode ask`): The agent must ask for user confirmation before writing to any file.
+- **LSP Support**: Integrated Language Server Protocol client for code intelligence (diagnostics, definitions, hover).
+  - Default: `pylsp` (Python LSP Server)
+  - Configurable via `--lsp-command` or `/lsp` command.
 - **Hooks System**: Extensible hook system compatible with Claude Code to run custom scripts on events (PreToolUse, PostToolUse, UserPromptSubmit, etc.).
 - **MCP Support**: Model Context Protocol integration for extending capabilities.
 - **Project Memory**:
@@ -32,6 +35,9 @@ Agent Coder is a powerful Terminal User Interface (TUI) coding assistant powered
   - **Anthropic**: Set `ANTHROPIC_API_KEY` environment variable
   - **Google Gemini**: Set `GEMINI_API_KEY` environment variable
   - **OpenAI**: Set `OPENAI_API_KEY` environment variable
+- **LSP Server** (Optional):
+  - `python-lsp-server` is installed by default for Python support.
+  - Install other language servers (e.g., `pyright`, `gopls`, `rust-analyzer`) to use them.
 
 ## Installation
 
@@ -60,23 +66,14 @@ Run the application using the CLI entry point:
 # Start with default settings (Ollama, gpt-oss:20b, Auto mode)
 python main.py start
 
+# Enable LSP support (uses pylsp by default)
+python main.py start --lsp
+
+# Use a specific LSP server (e.g., pyright)
+python main.py start --lsp --lsp-command "pyright-langserver --stdio"
+
 # Use Anthropic Claude
 python main.py start --provider anthropic --model claude-3-5-sonnet-latest
-
-# Use Google Gemini
-python main.py start --provider google --model gemini-1.5-pro
-
-# Use OpenAI GPT
-python main.py start --provider openai --model gpt-4o
-
-# Start in Plan mode (Read-only)
-python main.py start --mode plan
-
-# Start in Ask mode (Confirmation required for writes)
-python main.py start --mode ask
-
-# Print mode (non-interactive, for scripts)
-python main.py start "Create a hello world script" --print
 ```
 
 ### Interactive Settings
@@ -93,9 +90,11 @@ Inside the TUI, you can use the following commands:
 - `/help`: Show available commands.
 - `/settings`: Open the settings dialog (or press `s`).
 - `/clear`: Clear the chat history.
+- `/compact`: Compact conversation history.
 - `/model [name]`: Show current model or change to a new model.
 - `/provider [name]`: Show current provider or change provider (ollama, anthropic, google, openai).
 - `/mode [mode]`: Show current mode or change mode (auto, plan, ask).
+- `/lsp [on|off|<command>]`: Manage LSP support.
 - `/doctor`: Check the connection to the AI provider.
 - `/memory`: View the current project memory (`AGENT_MEMORY.md`).
 - `/memory <text>`: Add a new item to the project memory.

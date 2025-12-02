@@ -17,6 +17,8 @@ def start(
     model: str = typer.Option("gpt-oss:20b", help="Name of the model to use"),
     provider: str = typer.Option("ollama", help="Model provider: ollama, anthropic, google, openai"),
     mode: AgentMode = typer.Option(AgentMode.AUTO, help="Agent mode: auto, plan, ask"),
+    lsp: bool = typer.Option(False, help="Enable LSP support"),
+    lsp_command: str = typer.Option("pylsp", help="LSP server command"),
     print_mode: bool = typer.Option(False, "--print", "-p", help="Print response and exit (non-interactive)"),
 ):
     """Start the Agent Coder."""
@@ -31,7 +33,13 @@ def start(
         from src.agent.core import create_agent, get_agent_response
         
         async def run_headless():
-            settings = Settings(model=model, model_provider=provider, mode=mode)
+            settings = Settings(
+                model=model, 
+                model_provider=provider, 
+                mode=mode,
+                lsp_enabled=lsp,
+                lsp_command=lsp_command
+            )
             agent = create_agent(settings=settings)
             print(f"Running query: {query}")
             response, _ = await get_agent_response(agent, query)
@@ -40,7 +48,14 @@ def start(
         asyncio.run(run_headless())
     else:
         # TUI mode
-        tui = AgentCoderApp(model_name=model, model_provider=provider, mode=mode.value, initial_query=query)
+        tui = AgentCoderApp(
+            model_name=model, 
+            model_provider=provider, 
+            mode=mode.value, 
+            initial_query=query,
+            lsp_enabled=lsp,
+            lsp_command=lsp_command
+        )
         tui.run()
 
 def main():
