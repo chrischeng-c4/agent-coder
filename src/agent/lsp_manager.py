@@ -1,6 +1,6 @@
 import os
 import shlex
-from typing import List, Any, Callable
+from typing import List, Any, Callable, Optional
 from src.config import Settings
 from src.agent.lsp import LSPClient
 from src.agent.hooks import HookEvent
@@ -27,7 +27,8 @@ class LSPManager:
             self.tools = [
                 self.lsp_hover,
                 self.lsp_definition,
-                self.lsp_references
+                self.lsp_references,
+                self.lsp_rename
             ]
             
         except Exception as e:
@@ -55,6 +56,12 @@ class LSPManager:
         if not self.client: return "LSP not running."
         self._ensure_open(file_path)
         return self.client.references(file_path, line, character)
+
+    def lsp_rename(self, file_path: str, line: int, character: int, new_name: str) -> str:
+        """Rename a symbol and return the edits (does not apply them)."""
+        if not self.client: return "LSP not running."
+        self._ensure_open(file_path)
+        return self.client.rename(file_path, line, character, new_name)
 
     def _ensure_open(self, file_path: str):
         # In a real impl, we track open files. For now, we just send didOpen every time 

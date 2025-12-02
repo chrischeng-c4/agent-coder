@@ -203,3 +203,13 @@ class LSPClient(JSONRPCClient):
         }
         result = self.send_request("textDocument/references", params)
         return json.dumps(result, indent=2)
+
+    def rename(self, file_path: str, line: int, character: int, new_name: str) -> str:
+        uri = f"file://{file_path}"
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line - 1, "character": character},
+            "newName": new_name
+        }
+        result = self.send_request("textDocument/rename", params)
+        return json.dumps(result, indent=2)
