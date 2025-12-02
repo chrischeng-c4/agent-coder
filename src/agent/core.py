@@ -196,13 +196,13 @@ def create_agent(
     agent.hook_manager = hook_manager
     return agent
 
-async def get_agent_response(agent: Agent, user_input: str) -> str:
-    """Get a response from the agent."""
+async def get_agent_response(agent: Agent, user_input: str, message_history: Optional[List[Any]] = None) -> tuple[str, List[Any]]:
+    """Get a response from the agent, maintaining history."""
     try:
         if hasattr(agent, 'hook_manager'):
             await agent.hook_manager.trigger(HookEvent.USER_PROMPT_SUBMIT, {"user_input": user_input})
             
-        result = await agent.run(user_input)
-        return result.output
+        result = await agent.run(user_input, message_history=message_history)
+        return result.data, result.all_messages()
     except Exception as e:
-        return f"Error communicating with agent: {str(e)}"
+        return f"Error communicating with agent: {str(e)}", message_history or []

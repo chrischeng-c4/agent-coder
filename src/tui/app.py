@@ -6,6 +6,7 @@ from textual.screen import ModalScreen
 from textual import events
 from textual.message import Message
 from src.tui.settings_screen import SettingsScreen
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 
 class ChatInput(TextArea):
     """Custom TextArea for chat input."""
@@ -132,6 +133,7 @@ class AgentCoderApp(App):
         self.mode = mode
         self.initial_query = initial_query
         self.agent = None
+        self.message_history = []
 
     async def confirm_action(self, message: str) -> bool:
         """Request confirmation from user."""
@@ -209,6 +211,7 @@ class AgentCoderApp(App):
         """Clear the chat log."""
         self.query_one("#chat_log", RichLog).clear()
         self.query_one("#chat_log", RichLog).write("[bold yellow]Chat cleared.[/bold yellow]")
+        self.message_history = []
 
     def action_open_settings(self) -> None:
         """Open settings dialog."""
@@ -270,6 +273,7 @@ class AgentCoderApp(App):
             [bold]Available Commands:[/bold]
             /help       - Show this help message
             /clear      - Clear the chat log
+            /compact    - Compact conversation history
             /exit       - Exit the application
             /settings   - Open settings dialog (or press 's')
             /model      - Show or set current model
@@ -288,7 +292,12 @@ class AgentCoderApp(App):
         elif cmd == "/clear":
             log.clear()
             log.write("[bold yellow]Chat cleared.[/bold yellow]")
+            self.message_history = []
             
+        elif cmd == "/compact":
+            instructions = " ".join(args) if args else None
+            self.run_worker(self.compact_history(instructions))
+
         elif cmd in ("/exit", "/quit"):
             self.exit()
             
@@ -488,12 +497,65 @@ class AgentCoderApp(App):
         try:
             from src.agent.core import get_agent_response
             if self.agent:
-                response = await get_agent_response(self.agent, message)
+                response, new_history = await get_agent_response(self.agent, message, self.message_history)
+                self.message_history = new_history
                 log.write(f"[bold green]Agent:[/bold green] {response}")
             else:
                 log.write("[bold red]Error:[/bold red] Agent not initialized.")
         except Exception as e:
             log.write(f"[bold red]Error:[/bold red] {str(e)}")
+        finally:
+            status.update("")
+
+    async def compact_history(self, instructions: str = None) -> None:
+        """Compact conversation history."""
+        log = self.query_one("#chat_log", RichLog)
+        status = self.query_one("#status_bar", Label)
+        
+        if not self.message_history:
+            log.write("[yellow]No history to compact.[/yellow]")
+            return
+
+        status.update("Compacting history...")
+        
+        # Trigger PreCompact hook
+        from src.agent.hooks import HookEvent
+        if self.agent and hasattr(self.agent, 'hook_manager'):
+            await self.agent.hook_manager.trigger(HookEvent.PRE_COMPACT, {
+                "instructions": instructions,
+                "history_length": len(self.message_history)
+            })
+
+        # Convert history to text for summarization
+        history_text = "\n".join([str(m) for m in self.message_history])
+        
+        summary_prompt = (
+            "Please summarize the following conversation history. "
+            "Focus on preserving code changes, key decisions, and current state. "
+            "Discard trivial chit-chat.\n\n"
+        )
+        if instructions:
+            summary_prompt += f"Additional Instructions: {instructions}\n\n"
+            
+        summary_prompt += f"History:\n{history_text}"
+        
+        try:
+            # Run summarization using the agent (without history)
+            result = await self.agent.run(summary_prompt)
+            summary = result.data
+            
+            # Create new history
+            new_history = [
+                ModelRequest(parts=[UserPromptPart(content=f"Summary of previous conversation:\n{summary}")]),
+                ModelResponse(parts=[TextPart(content="Understood. I have the context.")])
+            ]
+            
+            self.message_history = new_history
+            log.write(f"[bold green]Conversation compacted.[/bold green]")
+            log.write(f"[dim]Summary: {summary[:100]}...[/dim]")
+            
+        except Exception as e:
+            log.write(f"[bold red]Error compacting history: {e}[/bold red]")
         finally:
             status.update("")
 

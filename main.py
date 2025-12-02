@@ -34,7 +34,7 @@ def start(
             settings = Settings(model=model, model_provider=provider, mode=mode)
             agent = create_agent(settings=settings)
             print(f"Running query: {query}")
-            response = await get_agent_response(agent, query)
+            response, _ = await get_agent_response(agent, query)
             print(response)
 
         asyncio.run(run_headless())

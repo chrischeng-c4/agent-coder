@@ -13,6 +13,7 @@ class HookEvent(str, Enum):
     SESSION_START = "SessionStart"
     SESSION_END = "SessionEnd"
     SUBAGENT_STOP = "SubagentStop"
+    PRE_COMPACT = "PreCompact"
     # Add others as needed
 
 class HookType(str, Enum):

@@ -27,7 +27,7 @@ def load_subagents(settings: Settings) -> Dict[str, SubAgentConfig]:
             continue
             
         for filename in os.listdir(agents_dir):
-            if filename.endswith(".yaml") or filename.endswith(".yml"):
+            if filename.endswith(".md") or filename.endswith(".markdown"):
                 try:
                     with open(os.path.join(agents_dir, filename), "r") as f:
                         # Parse frontmatter-like YAML
